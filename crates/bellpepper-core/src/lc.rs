@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::ops::{Add, Sub};
 
 use ff::PrimeField;
@@ -40,34 +41,30 @@ pub struct LinearCombination<Scalar: PrimeField> {
 #[derive(Clone, Debug, PartialEq)]
 struct Indexer<T> {
     /// Stores a list of `T` indexed by the number in the first slot of the tuple.
-    values: Vec<(usize, T)>,
-    /// `(index, key)` of the last insertion operation. Used to optimize consecutive operations
-    last_inserted: Option<(usize, usize)>,
+    values: BTreeMap<usize, T>,
 }
 
 impl<T> Default for Indexer<T> {
     fn default() -> Self {
         Indexer {
-            values: Vec::new(),
-            last_inserted: None,
+            values: BTreeMap::new(),
         }
     }
 }
 
 impl<T> Indexer<T> {
     pub fn from_value(index: usize, value: T) -> Self {
-        Indexer {
-            values: vec![(index, value)],
-            last_inserted: Some((0, index)),
-        }
+        let mut temp = BTreeMap::new();
+        temp.insert(index, value);
+        Indexer { values: temp }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&usize, &T)> + '_ {
         self.values.iter().map(|(key, value)| (key, value))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&mut usize, &mut T)> + '_ {
-        self.values.iter_mut().map(|(key, value)| (key, value))
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut T)> + '_ {
+        self.values.iter_mut()
     }
 
     pub fn insert_or_update<F, G>(&mut self, key: usize, insert: F, update: G)
@@ -75,40 +72,10 @@ impl<T> Indexer<T> {
         F: FnOnce() -> T,
         G: FnOnce(&mut T),
     {
-        if let Some((last_index, last_key)) = self.last_inserted {
-            // Optimization to avoid doing binary search on inserts & updates that are linear, meaning
-            // they are adding a consecutive values.
-            if last_key == key {
-                // update the same key again
-                update(&mut self.values[last_index].1);
-                return;
-            } else if last_key + 1 == key {
-                // optimization for follow on updates
-                let i = last_index + 1;
-                if i >= self.values.len() {
-                    // insert at the end
-                    self.values.push((key, insert()));
-                    self.last_inserted = Some((i, key));
-                } else if self.values[i].0 == key {
-                    // update
-                    update(&mut self.values[i].1);
-                } else {
-                    // insert
-                    self.values.insert(i, (key, insert()));
-                    self.last_inserted = Some((i, key));
-                }
-                return;
-            }
-        }
-        match self.values.binary_search_by_key(&key, |(k, _)| *k) {
-            Ok(i) => {
-                update(&mut self.values[i].1);
-            }
-            Err(i) => {
-                self.values.insert(i, (key, insert()));
-                self.last_inserted = Some((i, key));
-            }
-        }
+        self.values
+            .entry(key)
+            .and_modify(|v| update(v))
+            .or_insert(insert());
     }
 
     pub fn len(&self) -> usize {
@@ -373,7 +340,7 @@ impl<'a, Scalar: PrimeField> Sub<(Scalar, &'a LinearCombination<Scalar>)>
     }
 }
 
-#[cfg(all(test, feature = "groth16"))]
+#[cfg(all(test))]
 mod tests {
     use super::*;
     use blstrs::Scalar;
@@ -415,19 +382,27 @@ mod tests {
         two += one;
 
         indexer.insert_or_update(2, || one, |v| *v += one);
-        assert_eq!(&indexer.values, &[(2, one)]);
-        assert_eq!(&indexer.last_inserted, &Some((0, 2)));
+        assert_eq!(
+            &indexer.values.clone().into_iter().collect::<Vec<_>>(),
+            &[(2, one)]
+        );
 
         indexer.insert_or_update(3, || one, |v| *v += one);
-        assert_eq!(&indexer.values, &[(2, one), (3, one)]);
-        assert_eq!(&indexer.last_inserted, &Some((1, 3)));
+        assert_eq!(
+            &indexer.values.clone().into_iter().collect::<Vec<_>>(),
+            &[(2, one), (3, one)]
+        );
 
         indexer.insert_or_update(1, || one, |v| *v += one);
-        assert_eq!(&indexer.values, &[(1, one), (2, one), (3, one)]);
-        assert_eq!(&indexer.last_inserted, &Some((0, 1)));
+        assert_eq!(
+            &indexer.values.clone().into_iter().collect::<Vec<_>>(),
+            &[(1, one), (2, one), (3, one)]
+        );
 
         indexer.insert_or_update(2, || one, |v| *v += one);
-        assert_eq!(&indexer.values, &[(1, one), (2, two), (3, one)]);
-        assert_eq!(&indexer.last_inserted, &Some((0, 1)));
+        assert_eq!(
+            &indexer.values.into_iter().collect::<Vec<_>>(),
+            &[(1, one), (2, two), (3, one)]
+        );
     }
 }
