@@ -405,4 +405,38 @@ mod tests {
             &[(1, one), (2, two), (3, one)]
         );
     }
+
+    #[test]
+    fn test_eval() {
+        let mut lc = LinearCombination::<Scalar>::zero();
+        for i in 0..10 {
+            lc = lc
+                + (
+                    Scalar::from(i + 1),
+                    Variable::new_unchecked(Index::Input(i as usize)),
+                );
+            lc = lc
+                + (
+                    Scalar::from(i + 10),
+                    Variable::new_unchecked(Index::Aux(i as usize)),
+                );
+        }
+        let mut input_assignment = Vec::new();
+        let mut aux_assignment = Vec::new();
+
+        for i in 0..10 {
+            input_assignment.push(Scalar::from(i + 1));
+            aux_assignment.push(Scalar::from(i + 2));
+        }
+        let val = lc.eval(&input_assignment, &aux_assignment);
+        let mut sum = 0;
+        for i in 0..10 {
+            sum += (i + 1) * (i + 1);
+            sum += (i + 2) * (i + 10);
+        }
+        assert_eq!(val, Scalar::from(sum));
+
+        println!("{}", val);
+        println!("{:?}", sum);
+    }
 }
