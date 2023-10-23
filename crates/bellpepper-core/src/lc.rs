@@ -64,6 +64,7 @@ impl<T: Clone> Indexer<T> {
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut T)> + '_ {
+        self.values.sort_keys();
         self.values.iter_mut()
     }
 
@@ -76,7 +77,6 @@ impl<T: Clone> Indexer<T> {
             .entry(key)
             .and_modify(|v| update(v))
             .or_insert(insert());
-        self.values.sort_keys();
     }
 
     pub fn len(&self) -> usize {
@@ -383,24 +383,28 @@ mod tests {
         two += one;
 
         indexer.insert_or_update(2, || one, |v| *v += one);
+        let _ = indexer.iter_mut();
         assert_eq!(
             &indexer.values.clone().into_iter().collect::<Vec<_>>(),
             &[(2, one)]
         );
 
         indexer.insert_or_update(3, || one, |v| *v += one);
+        let _ = indexer.iter_mut();
         assert_eq!(
             &indexer.values.clone().into_iter().collect::<Vec<_>>(),
             &[(2, one), (3, one)]
         );
 
         indexer.insert_or_update(1, || one, |v| *v += one);
+        let _ = indexer.iter_mut();
         assert_eq!(
             &indexer.values.clone().into_iter().collect::<Vec<_>>(),
             &[(1, one), (2, one), (3, one)]
         );
 
         indexer.insert_or_update(2, || one, |v| *v += one);
+        let _ = indexer.iter_mut();
         assert_eq!(
             &indexer.values.into_iter().collect::<Vec<_>>(),
             &[(1, one), (2, two), (3, one)]
