@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::ops::{Add, Sub};
 
 use ff::PrimeField;
@@ -41,20 +41,20 @@ pub struct LinearCombination<Scalar: PrimeField> {
 #[derive(Clone, Debug, PartialEq)]
 struct Indexer<T> {
     /// Stores a list of `T` indexed by the number in the first slot of the tuple.
-    values: BTreeMap<usize, T>,
+    values: HashMap<usize, T>,
 }
 
 impl<T> Default for Indexer<T> {
     fn default() -> Self {
         Indexer {
-            values: BTreeMap::new(),
+            values: HashMap::new(),
         }
     }
 }
 
 impl<T> Indexer<T> {
     pub fn from_value(index: usize, value: T) -> Self {
-        let mut temp = BTreeMap::new();
+        let mut temp = HashMap::new();
         temp.insert(index, value);
         Indexer { values: temp }
     }
@@ -388,22 +388,19 @@ mod tests {
         );
 
         indexer.insert_or_update(3, || one, |v| *v += one);
-        assert_eq!(
-            &indexer.values.clone().into_iter().collect::<Vec<_>>(),
-            &[(2, one), (3, one)]
-        );
+        let mut res = indexer.values.clone().into_iter().collect::<Vec<_>>();
+        res.sort();
+        assert_eq!(&res, &[(2, one), (3, one)]);
 
         indexer.insert_or_update(1, || one, |v| *v += one);
-        assert_eq!(
-            &indexer.values.clone().into_iter().collect::<Vec<_>>(),
-            &[(1, one), (2, one), (3, one)]
-        );
+        let mut res = indexer.values.clone().into_iter().collect::<Vec<_>>();
+        res.sort();
+        assert_eq!(&res, &[(1, one), (2, one), (3, one)]);
 
         indexer.insert_or_update(2, || one, |v| *v += one);
-        assert_eq!(
-            &indexer.values.into_iter().collect::<Vec<_>>(),
-            &[(1, one), (2, two), (3, one)]
-        );
+        let mut res = indexer.values.clone().into_iter().collect::<Vec<_>>();
+        res.sort();
+        assert_eq!(&res, &[(1, one), (2, two), (3, one)]);
     }
 
     #[test]
