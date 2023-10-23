@@ -285,7 +285,6 @@ impl<'cs, Scalar: PrimeField, CS: ConstraintSystem<Scalar>> ConstraintSystem<Sca
     // Downstream users who use `namespace` will never interact with these
     // functions and they will never be invoked because the namespace is
     // never a root constraint system.
-
     fn push_namespace<NR, N>(&mut self, _: N)
     where
         NR: Into<String>,
