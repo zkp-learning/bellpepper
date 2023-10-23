@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Write;
 
-use super::Comparable;
+use super::{Comparable, Constraint};
 use crate::{ConstraintSystem, Index, LinearCombination, SynthesisError, Variable};
 use blake2s_simd::State as Blake2s;
 use byteorder::{BigEndian, ByteOrder};
@@ -22,12 +22,7 @@ pub struct TestConstraintSystem<Scalar: PrimeField> {
     named_objects: HashMap<String, NamedObject>,
     current_namespace: Vec<String>,
     #[allow(clippy::type_complexity)]
-    constraints: Vec<(
-        LinearCombination<Scalar>,
-        LinearCombination<Scalar>,
-        LinearCombination<Scalar>,
-        String,
-    )>,
+    constraints: Vec<Constraint<Scalar>>,
     inputs: Vec<(Scalar, String)>,
     aux: Vec<(Scalar, String)>,
 }
@@ -64,26 +59,31 @@ impl Ord for OrderedVariable {
 fn proc_lc<Scalar: PrimeField>(
     terms: &LinearCombination<Scalar>,
 ) -> BTreeMap<OrderedVariable, Scalar> {
-    let mut map = BTreeMap::new();
-    for (var, &coeff) in terms.iter() {
-        map.entry(OrderedVariable(var))
-            .or_insert_with(|| Scalar::ZERO)
-            .add_assign(&coeff);
-    }
+    terms
+        .iter()
+        .filter(|(_, v)| **v != Scalar::ZERO)
+        .map(|(k, v)| (OrderedVariable(k), v.clone()))
+        .collect::<BTreeMap<OrderedVariable, Scalar>>()
+    // let mut map = BTreeMap::new();
+    // for (var, &coeff) in terms.iter() {
+    //     map.entry(OrderedVariable(var))
+    //         .or_insert_with(|| Scalar::ZERO)
+    //         .add_assign(&coeff);
+    // }
 
     // Remove terms that have a zero coefficient to normalize
-    let mut to_remove = vec![];
-    for (var, coeff) in map.iter() {
-        if coeff.is_zero().into() {
-            to_remove.push(*var)
-        }
-    }
+    // let mut to_remove = vec![];
+    // for (var, coeff) in map.iter() {
+    //     if coeff.is_zero().into() {
+    //         to_remove.push(*var)
+    //     }
+    // }
 
-    for var in to_remove {
-        map.remove(&var);
-    }
+    // for var in to_remove {
+    //     map.remove(&var);
+    // }
 
-    map
+    // map
 }
 
 fn hash_lc<Scalar: PrimeField>(terms: &LinearCombination<Scalar>, h: &mut Blake2s) {
@@ -134,6 +134,7 @@ fn _eval_lc2<Scalar: PrimeField>(
     acc
 }
 
+// the same with terms.eval(&inputs, &aux);
 fn eval_lc<Scalar: PrimeField>(
     terms: &LinearCombination<Scalar>,
     inputs: &[(Scalar, String)],
@@ -505,5 +506,38 @@ mod tests {
         }
 
         assert!(cs.get("test1/test2/hehe") == Fr::ONE);
+    }
+
+    #[test]
+    fn test_proc_lc() {
+        let mut lc = LinearCombination::<Fr>::zero();
+        let coeff = Fr::ONE;
+        for i in 0..10 {
+            lc = lc + (coeff, Variable::new_unchecked(Index::Aux(i)));
+        }
+        lc = lc + (Fr::ZERO, Variable::new_unchecked(Index::Aux(10)));
+        let map = proc_lc(&lc);
+        for i in map {
+            println!("{:?}, {:?}", i.0 .0.get_unchecked(), i.1);
+        }
+    }
+
+    #[test]
+    fn test_eval_lc() {
+        let mut lc = LinearCombination::<Fr>::zero();
+        let one = Fr::ONE;
+        let two = Fr::ONE + Fr::ONE;
+        let mut inputs = vec![];
+        let mut aux = vec![];
+
+        for i in 0..10 {
+            lc = lc + (one, Variable::new_unchecked(Index::Aux(i)));
+            lc = lc + (two, Variable::new_unchecked(Index::Input(i)));
+            inputs.push((Fr::from(i as u64), String::new()));
+            aux.push((Fr::from(2 * i as u64), String::new()));
+        }
+
+        let res = eval_lc(&lc, &inputs, &aux);
+        assert_eq!(res, Fr::from(180));
     }
 }
