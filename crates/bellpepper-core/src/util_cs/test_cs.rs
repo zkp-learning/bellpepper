@@ -354,7 +354,7 @@ impl<Scalar: PrimeField> Comparable<Scalar> for TestConstraintSystem<Scalar> {
             .collect()
     }
 
-    fn constraints(&self) -> &[crate::util_cs::Constraint<Scalar>] {
+    fn constraints(&self) -> &[Constraint<Scalar>] {
         &self.constraints
     }
 }
