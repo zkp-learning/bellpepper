@@ -39,12 +39,12 @@ pub struct LinearCombination<Scalar: PrimeField> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct Indexer<T: Clone> {
+struct Indexer<T> {
     /// Stores a list of `T` indexed by the number in the first slot of the tuple.
     values: IndexMap<usize, T>,
 }
 
-impl<T: Clone> Default for Indexer<T> {
+impl<T> Default for Indexer<T> {
     fn default() -> Self {
         Indexer {
             values: IndexMap::new(),
@@ -52,7 +52,7 @@ impl<T: Clone> Default for Indexer<T> {
     }
 }
 
-impl<T: Clone> Indexer<T> {
+impl<T> Indexer<T> {
     pub fn from_value(index: usize, value: T) -> Self {
         let mut temp = IndexMap::new();
         temp.insert(index, value);
@@ -64,7 +64,6 @@ impl<T: Clone> Indexer<T> {
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut T)> + '_ {
-        self.values.sort_keys();
         self.values.iter_mut()
     }
 
@@ -85,6 +84,11 @@ impl<T: Clone> Indexer<T> {
 
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
+    }
+
+    #[cfg(test)]
+    pub fn sort_keys(&mut self) {
+        self.values.sort_keys();
     }
 }
 
@@ -383,28 +387,28 @@ mod tests {
         two += one;
 
         indexer.insert_or_update(2, || one, |v| *v += one);
-        let _ = indexer.iter_mut();
+        indexer.sort_keys();
         assert_eq!(
             &indexer.values.clone().into_iter().collect::<Vec<_>>(),
             &[(2, one)]
         );
 
         indexer.insert_or_update(3, || one, |v| *v += one);
-        let _ = indexer.iter_mut();
+        indexer.sort_keys();
         assert_eq!(
             &indexer.values.clone().into_iter().collect::<Vec<_>>(),
             &[(2, one), (3, one)]
         );
 
         indexer.insert_or_update(1, || one, |v| *v += one);
-        let _ = indexer.iter_mut();
+        indexer.sort_keys();
         assert_eq!(
             &indexer.values.clone().into_iter().collect::<Vec<_>>(),
             &[(1, one), (2, one), (3, one)]
         );
 
         indexer.insert_or_update(2, || one, |v| *v += one);
-        let _ = indexer.iter_mut();
+        indexer.sort_keys();
         assert_eq!(
             &indexer.values.into_iter().collect::<Vec<_>>(),
             &[(1, one), (2, two), (3, one)]
