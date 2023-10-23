@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
 use std::ops::{Add, Sub};
 
 use ff::PrimeField;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 /// Represents a variable in our constraint system.
@@ -39,22 +39,22 @@ pub struct LinearCombination<Scalar: PrimeField> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct Indexer<T> {
+struct Indexer<T: Clone> {
     /// Stores a list of `T` indexed by the number in the first slot of the tuple.
-    values: BTreeMap<usize, T>,
+    values: IndexMap<usize, T>,
 }
 
-impl<T> Default for Indexer<T> {
+impl<T: Clone> Default for Indexer<T> {
     fn default() -> Self {
         Indexer {
-            values: BTreeMap::new(),
+            values: IndexMap::new(),
         }
     }
 }
 
-impl<T> Indexer<T> {
+impl<T: Clone> Indexer<T> {
     pub fn from_value(index: usize, value: T) -> Self {
-        let mut temp = BTreeMap::new();
+        let mut temp = IndexMap::new();
         temp.insert(index, value);
         Indexer { values: temp }
     }
@@ -76,6 +76,7 @@ impl<T> Indexer<T> {
             .entry(key)
             .and_modify(|v| update(v))
             .or_insert(insert());
+        self.values.sort_keys();
     }
 
     pub fn len(&self) -> usize {
